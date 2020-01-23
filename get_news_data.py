@@ -1,4 +1,3 @@
-import multiprocessing as mp
 import concurrent.futures as cf
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -6,9 +5,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import NoSuchElementException, NoSuchAttributeException, TimeoutException
-import urllib.parse
-import urllib.request
-import requests
 from datetime import date, timedelta
 import time
 from pymongo import MongoClient
@@ -57,8 +53,8 @@ def article_threading(section_id):
     section 별로 마지막까지 데이터를 저장한 날짜부터 다시 웹 크롤링을 재개하도록
     다음 두 줄 주석 해제
     '''
-    r_date = find_recently_date(section_id)
-    start_date = date(2019, r_date[0], r_date[1])
+    # r_date = find_recently_date(section_id)
+    # start_date = date(2019, r_date[0], r_date[1])
 
     for single_date in date_range(start_date, end_date):
         url = create_url(single_date, section_id)
@@ -110,6 +106,7 @@ def get_article_inner_info(article_url, driver):
         info["reaction_angry"] = value_change(reactions[3].text)
         info["reaction_next"] = value_change(reactions[4].text)
     except TimeoutException:
+        # 네이버가 뉴스기사를 삭제한 경우.
         try:
             error = driver.find_element_by_class_name('error')
         except NoSuchElementException:
@@ -177,19 +174,21 @@ def get_article_inner_info(article_url, driver):
 client = MongoClient('localhost', 27017)
 db = client["news"]
 collection = db["article"]
-# collection.delete_many({"day":15})
 
 base_news_url = "https://news.naver.com"
 news_ranking_url = base_news_url + "/main/ranking/popularDay.nhn?rankingType=popular_day"
 
+# your chrome driver path
 chromedriver_path = r'B:\바탕화면\chromedriver.exe'
-driver = webdriver.Chrome(chromedriver_path)
+
+# we create driver by multi threading
+# driver = webdriver.Chrome(chromedriver_path)
+
 # date parameters
 start_date = date(2019, 10, 15)
 end_date = date(2019, 12, 31) + timedelta(days=1)
 
 if __name__ == '__main__':
-    # file = open(r"B:\바탕화면\news_db.txt", "w")
     '''
     #multiprocessing pool 방식
     pool = multiprocessing.Pool(processes=6)
@@ -198,13 +197,10 @@ if __name__ == '__main__':
     for i in range(100, 106, 2):
         mp.Process(target=article_processing, args=(i,)).start()
     '''
-    # start_time = time.time()
-    # with cf.ProcessPoolExecutor() as executor:
-    #     for msg in executor.map(article_processing, range(100, 106, 2)):
-    #         print(msg)
-    # duration = time.time() - start_time
-    # print(duration)
-    section_id = 105
-    for single_date in date_range(start_date, end_date):
-        url = create_url(single_date, section_id)
-        get_article_base_info(single_date.year, single_date.month, single_date.day, section_id, url, driver)
+
+    start_time = time.time()
+    with cf.ProcessPoolExecutor() as executor:
+        for msg in executor.map(article_processing, range(100, 106, 2)):
+            print(msg)
+    duration = time.time() - start_time
+    print(duration)
